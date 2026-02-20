@@ -1,7 +1,9 @@
 
 # API Mocker
 
-A self-hosted, infrastructure-native HTTP traffic gateway built with ASP.NET Core 8. Sits inside your Docker network and acts as a transparent proxy between your services and external dependencies — with per-route control over mocking, transformation, rate limiting, retries, and real-time observability.
+A self-hosted, infrastructure-native HTTP traffic gateway built with ASP.NET Core 10. Sits inside your Docker network and acts as a transparent proxy between your services and external dependencies — with per-route control over mocking, transformation, rate limiting, retries, and real-time observability.
+<img width="1913" height="383" alt="image" src="https://github.com/user-attachments/assets/e8839cde-d38a-4344-bd52-fc9f43f46e3b" />
+
 
 ---
 
@@ -10,6 +12,9 @@ A self-hosted, infrastructure-native HTTP traffic gateway built with ASP.NET Cor
 API Mocker is **not** a unit testing tool or a mock server for developers. It is a **deployable traffic control layer** that runs permanently inside your infrastructure. Every route can independently proxy traffic to a real upstream, return a static mock response, or do both depending on configuration.
 
 It was built specifically for environments where external services are unreliable, behind internal networks, or require specific header manipulation before requests can reach them — such as ESB gateways, payment processors, or legacy SOAP/REST integration layers.
+<img width="1913" height="692" alt="image" src="https://github.com/user-attachments/assets/32a91630-d77d-4fdc-b7cd-e4e999e1757c" />
+<img width="1907" height="929" alt="image" src="https://github.com/user-attachments/assets/dee51fc0-5143-4952-a1ae-64162db79c01" />
+
 
 ---
 
@@ -128,7 +133,7 @@ Routes can be pre-seeded from `appsettings.json` or environment variables. Seede
   "MockerRoutes": [
     {
       "Name": "Publish Issue Draft",
-      "Path": "/gateway-sync/send/message/EsbRestApiBaratGateway/HovitaPublishSepamMessage",
+      "Path": "/gateway-sync/send/message",
       "HttpMethod": "POST",
       "Mode": "Proxy",
       "ProxyDestination": "http://10.100.8.224:9080",
@@ -136,7 +141,7 @@ Routes can be pre-seeded from `appsettings.json` or environment variables. Seede
     },
     {
       "Name": "ESB Gateway Wildcard",
-      "Path": "/gateway-sync/send/message/EsbRestApiBaratGateway/**",
+      "Path": "/gateway-sync/send/message/**",
       "HttpMethod": "POST",
       "Mode": "Proxy",
       "ProxyDestination": "http://10.100.8.224:9080",
@@ -149,7 +154,7 @@ Routes can be pre-seeded from `appsettings.json` or environment variables. Seede
 **Via environment variables** (Docker / `.env`):
 ```dotenv
 MockerRoutes__0__Name=Publish Issue Draft
-MockerRoutes__0__Path=/gateway-sync/send/message/EsbRestApiBaratGateway/HovitaPublishSepamMessage
+MockerRoutes__0__Path=/gateway-sync/send/message
 MockerRoutes__0__HttpMethod=POST
 MockerRoutes__0__Mode=Proxy
 MockerRoutes__0__ProxyDestination=http://10.100.8.224:9080
@@ -166,7 +171,7 @@ Use `*` or `**` in the path to match multiple endpoints with one route:
 |---|---|---|
 | `/api/*/users` | `/api/123/users` | `/api/123/456/users` |
 | `/api/**` | `/api/foo`, `/api/foo/bar/baz` | `/other/path` |
-| `/gateway-sync/send/message/EsbRestApiBaratGateway/**` | Any path under that prefix | Anything outside it |
+| `/gateway-sync/send/message/**` | Any path under that prefix | Anything outside it |
 
 Exact routes always win over templates. Among multiple matching templates, the longest (most specific) pattern wins.
 
