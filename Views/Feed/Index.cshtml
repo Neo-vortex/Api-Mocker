@@ -1,0 +1,213 @@
+@{
+    ViewData["Title"] = "Live Feed";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-broadcast me-2" style="color:#a78bfa"></i>Live Request Feed</h5>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge" id="connectionBadge" style="background:#374151">Connecting...</span>
+        <button class="btn btn-sm btn-outline-secondary" id="pauseBtn">
+            <i class="bi bi-pause-fill me-1"></i>Pause
+        </button>
+        <button class="btn btn-sm btn-outline-danger" id="clearFeedBtn">
+            <i class="bi bi-trash me-1"></i>Clear
+        </button>
+        <a href="/Feed/Timeline" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-bar-chart-line me-1"></i>Timeline
+        </a>
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div class="row g-2 mb-3" id="statsBar">
+    <div class="col-auto">
+        <div class="card px-3 py-2 d-flex flex-row align-items-center gap-2">
+            <span class="text-muted small">Total</span>
+            <span class="fw-bold" id="statTotal">0</span>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card px-3 py-2 d-flex flex-row align-items-center gap-2">
+            <span class="status-2xx small">2xx</span>
+            <span class="fw-bold status-2xx" id="stat2xx">0</span>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card px-3 py-2 d-flex flex-row align-items-center gap-2">
+            <span class="status-4xx small">4xx</span>
+            <span class="fw-bold status-4xx" id="stat4xx">0</span>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card px-3 py-2 d-flex flex-row align-items-center gap-2">
+            <span class="status-5xx small">5xx</span>
+            <span class="fw-bold status-5xx" id="stat5xx">0</span>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card px-3 py-2 d-flex flex-row align-items-center gap-2">
+            <span class="text-muted small">Avg ms</span>
+            <span class="fw-bold" id="statAvg">—</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0" id="feedTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Route</th>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>IP</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                    <th>Duration</th>
+                    <th>Retries</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="feedBody">
+                <tr id="emptyRow">
+                    <td colspan="10" class="text-center text-muted py-5">
+                        <i class="bi bi-broadcast fs-3 d-block mb-2" style="color:#374151"></i>
+                        Waiting for requests...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script src="/lib/signalr/signalr.min.js"></script>
+<script>
+const MAX_ROWS = 200;
+let paused = false;
+let stats = { total: 0, s2xx: 0, s4xx: 0, s5xx: 0, durations: [] };
+let buffer = [];
+
+const feedBody = document.getElementById('feedBody');
+const emptyRow = document.getElementById('emptyRow');
+const pauseBtn = document.getElementById('pauseBtn');
+const badge = document.getElementById('connectionBadge');
+
+// ── SignalR connection ────────────────────────────────────────────────────
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl('/hubs/requestfeed')
+    .withAutomaticReconnect()
+    .build();
+
+connection.onreconnecting(() => {
+    badge.style.background = '#92400e';
+    badge.textContent = 'Reconnecting...';
+});
+connection.onreconnected(() => {
+    badge.style.background = '#065f46';
+    badge.textContent = 'Connected';
+});
+
+connection.on('RequestReceived', (evt) => {
+    if (paused) { buffer.push(evt); return; }
+    appendRow(evt);
+    updateStats(evt);
+});
+
+connection.start()
+    .then(() => {
+        badge.style.background = '#065f46';
+        badge.textContent = 'Connected';
+    })
+    .catch(() => {
+        badge.style.background = '#7f1d1d';
+        badge.textContent = 'Disconnected';
+    });
+
+// ── Pause / Resume ────────────────────────────────────────────────────────
+pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.innerHTML = paused
+        ? '<i class="bi bi-play-fill me-1"></i>Resume'
+        : '<i class="bi bi-pause-fill me-1"></i>Pause';
+    pauseBtn.classList.toggle('btn-outline-warning', paused);
+    pauseBtn.classList.toggle('btn-outline-secondary', !paused);
+
+    if (!paused && buffer.length) {
+        buffer.forEach(evt => { appendRow(evt); updateStats(evt); });
+        buffer = [];
+    }
+});
+
+// ── Clear ─────────────────────────────────────────────────────────────────
+document.getElementById('clearFeedBtn').addEventListener('click', () => {
+    feedBody.innerHTML = '';
+    feedBody.appendChild(emptyRow);
+    emptyRow.style.display = '';
+    stats = { total: 0, s2xx: 0, s4xx: 0, s5xx: 0, durations: [] };
+    renderStats();
+    buffer = [];
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function appendRow(evt) {
+    emptyRow.style.display = 'none';
+
+    const sc = evt.statusCode;
+    const scClass = sc >= 500 ? 'status-5xx' : sc >= 400 ? 'status-4xx' : 'status-2xx';
+    const modeClass = evt.mode === 'Mock' ? 'badge-mock' : 'badge-proxy';
+
+    const tr = document.createElement('tr');
+    tr.style.animation = 'fadeIn .3s ease';
+    tr.innerHTML = `
+        <td class="text-muted small text-nowrap">${evt.timestamp}</td>
+        <td class="fw-semibold small">${esc(evt.routeName)}</td>
+        <td><span class="method-${evt.method.toLowerCase()}">${evt.method}</span></td>
+        <td class="font-monospace small">${esc(evt.path)}${esc(evt.queryString)}</td>
+        <td class="text-muted small font-monospace">${esc(evt.clientIp)}</td>
+        <td class="${scClass} fw-bold">${sc}</td>
+        <td><span class="badge ${modeClass}">${evt.mode}</span></td>
+        <td class="text-muted small">${evt.durationMs} ms</td>
+        <td class="text-muted small">${evt.retryAttempts > 0 ? `<span class="text-warning">${evt.retryAttempts}×</span>` : '—'}</td>
+        <td><a href="/Logs/Detail/${evt.logId}" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-eye"></i></a></td>
+    `;
+
+    // Prepend (newest at top)
+    feedBody.insertBefore(tr, feedBody.firstChild);
+
+    // Trim old rows
+    const rows = feedBody.querySelectorAll('tr:not(#emptyRow)');
+    if (rows.length > MAX_ROWS) rows[rows.length - 1].remove();
+}
+
+function updateStats(evt) {
+    const sc = evt.statusCode;
+    stats.total++;
+    if (sc >= 200 && sc < 300) stats.s2xx++;
+    else if (sc >= 400 && sc < 500) stats.s4xx++;
+    else if (sc >= 500) stats.s5xx++;
+    stats.durations.push(evt.durationMs);
+    if (stats.durations.length > 500) stats.durations.shift();
+    renderStats();
+}
+
+function renderStats() {
+    document.getElementById('statTotal').textContent = stats.total;
+    document.getElementById('stat2xx').textContent = stats.s2xx;
+    document.getElementById('stat4xx').textContent = stats.s4xx;
+    document.getElementById('stat5xx').textContent = stats.s5xx;
+    const avg = stats.durations.length
+        ? Math.round(stats.durations.reduce((a,b)=>a+b,0) / stats.durations.length)
+        : 0;
+    document.getElementById('statAvg').textContent = avg ? avg + ' ms' : '—';
+}
+
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+<style>
+@@keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+</style>
+}

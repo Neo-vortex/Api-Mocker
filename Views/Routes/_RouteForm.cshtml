@@ -1,0 +1,271 @@
+@model RouteConfigViewModel
+
+<div class="row g-3">
+    <!-- Basic info -->
+    <div class="col-md-6">
+        <label class="form-label text-muted small">Name</label>
+        <input asp-for="Name" class="form-control" placeholder="e.g. Get Users" required />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label text-muted small">HTTP Method</label>
+        <select asp-for="HttpMethod" class="form-select">
+            @foreach (var m in new[]{"GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS","*"})
+            { <option value="@m">@m</option> }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label text-muted small">Mode</label>
+        <select asp-for="Mode" class="form-select" id="modeSelect">
+            <option value="Mock">Mock</option>
+            <option value="Proxy">Proxy</option>
+        </select>
+    </div>
+    <div class="col-12">
+        <label class="form-label text-muted small">Path</label>
+        <input asp-for="Path" class="form-control font-monospace" placeholder="/api/users" required />
+        <div class="form-text">
+            Use <code>*</code> for single segment, <code>**</code> for multiple.
+            e.g. <code>/api/*/details</code> &nbsp;·&nbsp; <code>/gateway-sync/**</code>
+        </div>
+    </div>
+
+    <!-- Mock settings -->
+    <div id="mockSettings" class="col-12">
+        <div class="card">
+            <div class="card-header small"><i class="bi bi-box-seam me-1"></i>Mock Response</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Status Code</label>
+                        <input asp-for="MockStatusCode" class="form-control" type="number" min="100" max="599" />
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Content-Type</label>
+                        <input asp-for="MockContentType" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Response Body</label>
+                        <textarea asp-for="MockBody" class="form-control" rows="6"
+                                  placeholder='{"message": "Hello World"}'></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proxy settings -->
+    <div id="proxySettings" class="col-12" style="display:none">
+        <div class="card">
+            <div class="card-header small"><i class="bi bi-arrow-left-right me-1"></i>Proxy Settings</div>
+            <div class="card-body row g-3">
+                <div class="col-12">
+                    <label class="form-label text-muted small">Destination Base URL</label>
+                    <input asp-for="ProxyDestination" class="form-control font-monospace"
+                           placeholder="https://api.example.com" />
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input asp-for="TrustInsecureSsl" class="form-check-input" type="checkbox" role="switch" />
+                        <label class="form-check-label" asp-for="TrustInsecureSsl">
+                            Trust insecure / self-signed SSL certificates
+                        </label>
+                    </div>
+                    <div class="form-text" style="color:#f87171">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Only enable for internal services with self-signed certs. Do not use against untrusted hosts.
+                    </div>
+                </div>
+
+                <!-- Health check -->
+                <div class="col-12">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="form-check form-switch mb-0">
+                            <input asp-for="HealthCheckEnabled" class="form-check-input" type="checkbox" role="switch" id="hcToggle" />
+                            <label class="form-check-label" asp-for="HealthCheckEnabled">Enable Health Check</label>
+                        </div>
+                        <span class="badge" style="background:#374151;font-size:0.7rem">
+                            <i class="bi bi-info-circle me-1"></i>Type: Ping (HTTP GET to destination)
+                        </span>
+                    </div>
+                    <div id="hcOptions" style="display:none">
+                        <label class="form-label text-muted small">Check Interval (seconds)</label>
+                        <input asp-for="HealthCheckIntervalSeconds" class="form-control" type="number" min="5" style="max-width:200px" />
+                    </div>
+                </div>
+
+                <!-- Retry -->
+                <div class="col-12">
+                    <div class="form-check form-switch mb-2">
+                        <input asp-for="RetryEnabled" class="form-check-input" type="checkbox" role="switch" id="retryToggle" />
+                        <label class="form-check-label" asp-for="RetryEnabled">Enable Retry on Failure</label>
+                    </div>
+                    <div id="retryOptions" class="row g-2" style="display:none">
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small">Max Retries</label>
+                            <input asp-for="RetryCount" class="form-control" type="number" min="1" max="10" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small">Delay between retries (ms)</label>
+                            <input asp-for="RetryDelayMs" class="form-control" type="number" min="0" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">Retries on non-2xx responses and network errors/timeouts.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rate limiting -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header small"><i class="bi bi-speedometer me-1"></i>Rate Limiting</div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input asp-for="RateLimitEnabled" class="form-check-input" type="checkbox" role="switch" id="rlToggle" />
+                    <label class="form-check-label" asp-for="RateLimitEnabled">Enable Rate Limiting</label>
+                </div>
+                <div id="rlOptions" class="row g-2" style="display:none">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Max Requests</label>
+                        <input asp-for="RateLimitRequests" class="form-control" type="number" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Per Window (seconds)</label>
+                        <input asp-for="RateLimitWindowSeconds" class="form-control" type="number" min="1" />
+                    </div>
+                    <div class="col-12"><div class="form-text">Returns 429 when limit is exceeded.</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lua scripts -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header small"><i class="bi bi-code-slash me-1"></i>Lua Transformation Scripts</div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <label class="form-label text-muted small d-flex justify-content-between">
+                        <span>Request Script <span class="badge" style="background:#1e3a5f;font-size:0.65rem">runs before forwarding / mocking</span></span>
+                    </label>
+                    <div id="requestScriptEditor" style="height:180px;border:1px solid #2d3748;border-radius:6px;overflow:hidden"></div>
+                    <textarea asp-for="RequestScript" id="RequestScript" style="display:none"></textarea>
+                    <div class="form-text mt-1">
+                        Available: <code>request.Headers</code>, <code>request.Body</code>, <code>request.Path</code>,
+                        <code>request.QueryString</code>, <code>request.Method</code>,
+                        <code>request:GetHeader(key)</code>, <code>request:SetHeader(key, val)</code>,
+                        <code>request:RemoveHeader(key)</code>, <code>json_decode(str)</code>, <code>json_encode(tbl)</code>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label text-muted small">
+                        Response Script <span class="badge" style="background:#1e3a5f;font-size:0.65rem">runs before returning to caller</span>
+                    </label>
+                    <div id="responseScriptEditor" style="height:180px;border:1px solid #2d3748;border-radius:6px;overflow:hidden"></div>
+                    <textarea asp-for="ResponseScript" id="ResponseScript" style="display:none"></textarea>
+                    <div class="form-text mt-1">
+                        Available: <code>response.StatusCode</code>, <code>response.Headers</code>, <code>response.Body</code>,
+                        <code>response:GetHeader(key)</code>, <code>response:SetHeader(key, val)</code>,
+                        <code>response:RemoveHeader(key)</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 d-flex align-items-center gap-3 pt-2">
+        <div class="form-check form-switch">
+            <input asp-for="IsEnabled" class="form-check-input" type="checkbox" role="switch" />
+            <label class="form-check-label" asp-for="IsEnabled">Enabled</label>
+        </div>
+    </div>
+</div>
+
+<!-- CodeMirror 5 - local assets -->
+<link rel="stylesheet" href="/lib/codemirror/css/codemirror.min.css">
+<link rel="stylesheet" href="/lib/codemirror/theme/dracula.min.css">
+<script src="/lib/codemirror/js/codemirror.min.js"></script>
+<script src="/lib/codemirror/js/lua.min.js"></script>
+<script src="/lib/codemirror/js/matchbrackets.min.js"></script>
+<script src="/lib/codemirror/js/closebrackets.min.js"></script>
+<script src="/lib/codemirror/js/comment.min.js"></script>
+<style>
+.CodeMirror { height: 180px; background: #0a0c14; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; }
+.CodeMirror-gutters { background: #0a0c14; border-right: 1px solid #2d3748; }
+.CodeMirror-linenumber { color: #4a5568; }
+.CodeMirror-cursor { border-left-color: #a78bfa; }
+.CodeMirror-selected { background: rgba(124,58,237,.3); }
+</style>
+
+<script>
+(function() {
+    const cmOptions = {
+        mode: 'lua',
+        theme: 'dracula',
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        extraKeys: { "Ctrl-/": "toggleComment", "Cmd-/": "toggleComment" }
+    };
+
+    const reqTextarea = document.getElementById('RequestScript');
+    const respTextarea = document.getElementById('ResponseScript');
+
+    const reqEditor = CodeMirror(document.getElementById('requestScriptEditor'), {
+        ...cmOptions,
+        value: reqTextarea.value || ''
+    });
+    const respEditor = CodeMirror(document.getElementById('responseScriptEditor'), {
+        ...cmOptions,
+        value: respTextarea.value || ''
+    });
+
+    // Sync editors back to hidden textareas on form submit
+    const form = reqTextarea.closest('form');
+    if (form) {
+        form.addEventListener('submit', () => {
+            reqTextarea.value = reqEditor.getValue();
+            respTextarea.value = respEditor.getValue();
+        });
+    }
+
+    // Mode toggle
+    const modeSelect = document.getElementById('modeSelect');
+    const mockDiv = document.getElementById('mockSettings');
+    const proxyDiv = document.getElementById('proxySettings');
+
+    function toggleMode() {
+        const isMock = modeSelect.value === 'Mock';
+        mockDiv.style.display = isMock ? '' : 'none';
+        proxyDiv.style.display = isMock ? 'none' : '';
+    }
+    modeSelect.addEventListener('change', toggleMode);
+    toggleMode();
+
+    // Health check toggle
+    const hcToggle = document.getElementById('hcToggle');
+    const hcOptions = document.getElementById('hcOptions');
+    function toggleHc() { hcOptions.style.display = hcToggle.checked ? '' : 'none'; }
+    hcToggle.addEventListener('change', toggleHc);
+    toggleHc();
+
+    // Retry toggle
+    const retryToggle = document.getElementById('retryToggle');
+    const retryOptions = document.getElementById('retryOptions');
+    function toggleRetry() { retryOptions.style.display = retryToggle.checked ? '' : 'none'; }
+    retryToggle.addEventListener('change', toggleRetry);
+    toggleRetry();
+
+    // Rate limit toggle
+    const rlToggle = document.getElementById('rlToggle');
+    const rlOptions = document.getElementById('rlOptions');
+    function toggleRl() { rlOptions.style.display = rlToggle.checked ? '' : 'none'; }
+    rlToggle.addEventListener('change', toggleRl);
+    toggleRl();
+})();
+</script>

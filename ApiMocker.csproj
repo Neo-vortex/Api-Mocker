@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ApiMocker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="NLua" Version="1.7.3" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
+    <PackageReference Include="Polly" Version="8.4.1" />
+    <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Views\Home\Index.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Logs\Detail.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Logs\Index.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Routes\Create.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Routes\Edit.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Routes\Index.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Routes\_RouteForm.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Shared\_Layout.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Feed\Index.cshtml" />
+    <_ContentIncludedByDefault Remove="Views\Feed\Timeline.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Views\Home\Index.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Create.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Edit.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Index.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\_RouteForm.cshtml" />
+    <UpToDateCheckInput Remove="Views\Home\Index.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Create.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Edit.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\Index.cshtml" />
+    <UpToDateCheckInput Remove="Views\Routes\_RouteForm.cshtml" />
+  </ItemGroup>
+
+</Project>

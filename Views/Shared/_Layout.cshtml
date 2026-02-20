@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – API Mocker</title>
+    <link href="/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/lib/bootstrap-icons/css/bootstrap-icons.css" rel="stylesheet" />
+    <style>
+        /* Base */
+        body { background: #0f1117; color: #e2e8f0; }
+
+        /* Navbar */
+        .navbar { background: #1a1d2e !important; border-bottom: 1px solid #2d3748; }
+        .navbar-brand { color: #7c3aed !important; font-weight: 700; font-size: 1.3rem; }
+        .nav-link { color: #94a3b8 !important; }
+        .nav-link:hover, .nav-link.active { color: #a78bfa !important; }
+
+        /* Cards */
+        .card { background: #1a1d2e !important; border: 1px solid #2d3748 !important; color: #e2e8f0 !important; }
+        .card-header { background: #141624 !important; border-bottom: 1px solid #2d3748 !important; color: #94a3b8 !important; }
+        .card-body { color: #e2e8f0; }
+
+        /* Tables — override Bootstrap dark theme's defaults to match our palette */
+        .table { --bs-table-bg: transparent; --bs-table-color: #e2e8f0; --bs-table-border-color: #1e2235;
+                 --bs-table-hover-bg: #1e2235; --bs-table-striped-bg: #161929; color: #e2e8f0; }
+        .table th { color: #94a3b8 !important; font-size: 0.78rem; text-transform: uppercase;
+                    letter-spacing: .05em; border-color: #2d3748 !important; background: #141624 !important; }
+        .table td { border-color: #1e2235 !important; vertical-align: middle; color: #e2e8f0; }
+        .table-hover > tbody > tr:hover > * { --bs-table-color-state: #e2e8f0; background-color: #1e2235; }
+
+        /* Forms */
+        .form-control, .form-select {
+            background-color: #0f1117 !important; border-color: #2d3748 !important;
+            color: #e2e8f0 !important;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #0f1117 !important; border-color: #7c3aed !important;
+            color: #e2e8f0 !important; box-shadow: 0 0 0 0.25rem rgba(124,58,237,.25) !important;
+        }
+        .form-control::placeholder { color: #4a5568; }
+        textarea.form-control { font-family: monospace; font-size: 0.85rem; }
+        .form-text { color: #64748b !important; }
+        .form-label { color: #94a3b8; }
+
+        /* Buttons */
+        .btn-primary { background: #7c3aed !important; border-color: #7c3aed !important; color: #fff !important; }
+        .btn-primary:hover { background: #6d28d9 !important; border-color: #6d28d9 !important; }
+        .btn-outline-secondary { color: #94a3b8 !important; border-color: #4a5568 !important; }
+        .btn-outline-secondary:hover { background: #2d3748 !important; color: #e2e8f0 !important; }
+        .btn-outline-danger { color: #f87171 !important; border-color: #f87171 !important; }
+        .btn-outline-danger:hover { background: #f87171 !important; color: #fff !important; }
+
+        /* Badges */
+        .badge-mock { background: #7c3aed !important; color: #fff; }
+        .badge-proxy { background: #0891b2 !important; color: #fff; }
+
+        /* HTTP method colours */
+        .method-get    { color: #34d399; font-weight: 700; }
+        .method-post   { color: #60a5fa; font-weight: 700; }
+        .method-put    { color: #fbbf24; font-weight: 700; }
+        .method-delete { color: #f87171; font-weight: 700; }
+        .method-patch  { color: #a78bfa; font-weight: 700; }
+        .method-head, .method-options { color: #94a3b8; font-weight: 700; }
+
+        /* Status colours */
+        .status-2xx { color: #34d399; }
+        .status-4xx { color: #fbbf24; }
+        .status-5xx { color: #f87171; }
+
+        /* Stat cards */
+        .stat-card { border-left: 4px solid #7c3aed !important; }
+
+        /* Alerts */
+        .alert-success { background: #064e3b !important; border-color: #059669 !important; color: #6ee7b7 !important; }
+        .btn-close { filter: invert(1); }
+
+        /* Code / pre */
+        pre { background: #0a0c14 !important; border: 1px solid #2d3748 !important;
+              border-radius: 6px; padding: 1rem; color: #a3e635; font-size: 0.8rem;
+              max-height: 300px; overflow: auto; }
+
+        /* Misc */
+        a { color: #a78bfa; }
+        a:hover { color: #c4b5fd; }
+        .text-muted { color: #64748b !important; }
+        .pagination .page-link { background: #1a1d2e; border-color: #2d3748; color: #94a3b8; }
+        .pagination .page-item.active .page-link { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="bi bi-broadcast-pin me-2"></i>API Mocker</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link @(Context.Request.Path == "/" ? "active" : "")" href="/"><i class="bi bi-house me-1"></i>Dashboard</a>
+                <a class="nav-link @(Context.Request.Path.StartsWithSegments("/Routes") ? "active" : "")" href="/Routes"><i class="bi bi-diagram-3 me-1"></i>Routes</a>
+                <a class="nav-link @(Context.Request.Path.StartsWithSegments("/Logs") ? "active" : "")" href="/Logs"><i class="bi bi-journal-text me-1"></i>Logs</a>
+                <a class="nav-link @(Context.Request.Path.StartsWithSegments("/Feed") && !Context.Request.Path.StartsWithSegments("/Feed/Timeline") ? "active" : "")" href="/Feed"><i class="bi bi-broadcast me-1"></i>Live Feed</a>
+                <a class="nav-link @(Context.Request.Path.StartsWithSegments("/Feed/Timeline") ? "active" : "")" href="/Feed/Timeline"><i class="bi bi-bar-chart-line me-1"></i>Timeline</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container-fluid py-4 px-4">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle me-2"></i>@TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @RenderBody()
+    </div>
+    <script src="/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

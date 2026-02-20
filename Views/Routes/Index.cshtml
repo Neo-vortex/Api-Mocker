@@ -1,0 +1,141 @@
+@model List<RouteConfigViewModel>
+@{
+    ViewData["Title"] = "Routes";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Routes</h5>
+    <a href="/Routes/Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Route</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>Mode</th>
+                    <th>Health</th>
+                    <th>Features</th>
+                    <th>Requests</th>
+                    <th>Last Used</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input route-toggle" type="checkbox" role="switch"
+                                       data-id="@r.Id" @(r.IsEnabled ? "checked" : "") />
+                            </div>
+                        </td>
+                        <td class="fw-semibold">@r.Name</td>
+                        <td><span class="method-@r.HttpMethod.ToLower()">@r.HttpMethod</span></td>
+                        <td class="font-monospace small">
+                            @r.Path
+                            @if (r.IsTemplate)
+                            {
+                                <span class="badge ms-1" style="background:#92400e;font-size:0.65rem">template</span>
+                            }
+                        </td>
+                        <td><span class="badge @(r.Mode == "Mock" ? "badge-mock" : "badge-proxy")">@r.Mode</span></td>
+                        <td>
+                            @if (r.Mode == "Proxy" && r.HealthCheckEnabled)
+                            {
+                                if (r.LastHealthCheckPassed == null)
+                                {
+                                    <span class="badge" style="background:#374151" title="Pending first check">
+                                        <i class="bi bi-circle me-1"></i>Pending
+                                    </span>
+                                }
+                                else if (r.LastHealthCheckPassed == true)
+                                {
+                                    <span class="badge" style="background:#065f46" title="Last checked: @(r.LastHealthCheckAt?.ToString("HH:mm:ss"))">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Up
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge" style="background:#7f1d1d"
+                                          title="@r.LastHealthCheckError · @(r.LastHealthCheckAt?.ToString("HH:mm:ss"))">
+                                        <i class="bi bi-x-circle-fill me-1"></i>Down
+                                    </span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted" style="font-size:0.75rem">—</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                @if (r.TrustInsecureSsl)
+                                {
+                                    <span class="badge" style="background:#7f1d1d;font-size:0.65rem" title="SSL certificate validation disabled">
+                                        <i class="bi bi-shield-exclamation me-1"></i>insecure SSL
+                                    </span>
+                                }
+                                @if (r.RateLimitEnabled)
+                                {
+                                    <span class="badge" style="background:#1e3a5f;font-size:0.65rem" title="@r.RateLimitRequests req / @r.RateLimitWindowSeconds s">
+                                        <i class="bi bi-speedometer me-1"></i>Rate
+                                    </span>
+                                }
+                                @if (r.RetryEnabled)
+                                {
+                                    <span class="badge" style="background:#1e3a5f;font-size:0.65rem" title="@r.RetryCount retries, @r.RetryDelayMs ms delay">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Retry
+                                    </span>
+                                }
+                            </div>
+                        </td>
+                        <td>
+                            @if (r.LogCount > 0)
+                            {
+                                <a href="/Logs?routeId=@r.Id" class="text-decoration-none">@r.LogCount</a>
+                            }
+                            else { <span class="text-muted">0</span> }
+                        </td>
+                        <td class="text-muted small">
+                            @(r.LastUsed.HasValue ? r.LastUsed.Value.ToString("MM-dd HH:mm") : "Never")
+                        </td>
+                        <td class="text-end">
+                            <a href="/Routes/Edit/@r.Id" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-pencil"></i></a>
+                            <form method="post" action="/Routes/Delete/@r.Id" style="display:inline"
+                                  onsubmit="return confirm('Delete this route?')">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="10" class="text-center text-muted py-4">No routes yet. <a href="/Routes/Create">Create one</a>!</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.querySelectorAll('.route-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async function() {
+        const id = this.dataset.id;
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        await fetch(`/Routes/Toggle/${id}`, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token || '' }
+        });
+    });
+});
+</script>
+<form style="display:none">@Html.AntiForgeryToken()</form>
+}

@@ -1,0 +1,66 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Total Routes</div>
+            <div class="fs-2 fw-bold text-white">@ViewBag.TotalRoutes</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card p-3" style="border-left-color:#059669">
+            <div class="text-muted small">Active Routes</div>
+            <div class="fs-2 fw-bold text-white">@ViewBag.ActiveRoutes</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card p-3" style="border-left-color:#0891b2">
+            <div class="text-muted small">Total Requests Logged</div>
+            <div class="fs-2 fw-bold text-white">@ViewBag.TotalLogs</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Recent Requests</span>
+        <a href="/Logs" class="btn btn-sm btn-outline-secondary">View all</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Route</th>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                    <th>Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in ViewBag.RecentLogs)
+                {
+                    var statusClass = log.ResponseStatusCode >= 500 ? "status-5xx" :
+                                      log.ResponseStatusCode >= 400 ? "status-4xx" : "status-2xx";
+                    <tr>
+                        <td class="text-muted small">@log.Timestamp.ToString("HH:mm:ss")</td>
+                        <td>@log.RouteConfig.Name</td>
+                        <td><span class="method-@log.Method.ToLower()">@log.Method</span></td>
+                        <td class="font-monospace small">@log.Path</td>
+                        <td class="@statusClass fw-bold">@log.ResponseStatusCode</td>
+                        <td><span class="badge @(log.Mode == "Mock" ? "badge-mock" : "badge-proxy")">@log.Mode</span></td>
+                        <td class="text-muted small">@log.DurationMs ms</td>
+                    </tr>
+                }
+                @if (((System.Collections.IList)ViewBag.RecentLogs).Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No requests logged yet. Create a route and send a request!</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

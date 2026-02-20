@@ -1,0 +1,204 @@
+@model List<ApiMocker.Controllers.TimelineBucket>
+@{
+    ViewData["Title"] = "Timeline";
+    string granularity = ViewBag.Granularity;
+    var labels = Model.Select(b => b.Time.ToString(granularity == "hour" ? "MM-dd HH:mm" : "HH:mm")).ToList();
+    var totals = Model.Select(b => b.Total).ToList();
+    var successes = Model.Select(b => b.Success).ToList();
+    var errors = Model.Select(b => b.Errors).ToList();
+    var avgDurations = Model.Select(b => b.AvgDurationMs).ToList();
+    var mocks = Model.Select(b => b.MockCount).ToList();
+    var proxies = Model.Select(b => b.ProxyCount).ToList();
+
+    // Heatmap: hour x day grid (last 7 days x 24 hours)
+    var heatmapData = new int[7, 24];
+    var now = DateTime.UtcNow;
+    foreach (var b in Model)
+    {
+        var daysAgo = (int)(now.Date - b.Time.Date).TotalDays;
+        if (daysAgo >= 0 && daysAgo < 7)
+            heatmapData[daysAgo, b.Time.Hour] += b.Total;
+    }
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-bar-chart-line me-2" style="color:#a78bfa"></i>Traffic Timeline</h5>
+    <div class="d-flex gap-2">
+        <a href="/Feed/Timeline?granularity=minute" class="btn btn-sm @(granularity=="minute" ? "btn-primary" : "btn-outline-secondary")">Per Minute</a>
+        <a href="/Feed/Timeline?granularity=hour" class="btn btn-sm @(granularity=="hour" ? "btn-primary" : "btn-outline-secondary")">Per Hour</a>
+        <a href="/Feed" class="btn btn-sm btn-outline-secondary"><i class="bi bi-broadcast me-1"></i>Live Feed</a>
+    </div>
+</div>
+
+<!-- Request volume chart -->
+<div class="card mb-3">
+    <div class="card-header">Request Volume (last 24h)</div>
+    <div class="card-body">
+        <canvas id="volumeChart" height="80"></canvas>
+    </div>
+</div>
+
+<!-- Duration chart -->
+<div class="card mb-3">
+    <div class="card-header">Avg Response Time ms (last 24h)</div>
+    <div class="card-body">
+        <canvas id="durationChart" height="60"></canvas>
+    </div>
+</div>
+
+<!-- Mock vs Proxy chart -->
+<div class="row g-3 mb-3">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header">Mock vs Proxy Traffic</div>
+            <div class="card-body">
+                <canvas id="modeChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">Status Distribution</div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="statusPie" style="max-height:200px"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Heatmap -->
+<div class="card mb-3">
+    <div class="card-header">Request Heatmap — Last 7 Days × 24 Hours</div>
+    <div class="card-body">
+        <div id="heatmap" style="overflow-x:auto"></div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="/lib/chartjs/chart.umd.min.js"></script>
+<script>
+const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(labels));
+const totals = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(totals));
+const successes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(successes));
+const errors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(errors));
+const avgDurations = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(avgDurations));
+const mocks = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(mocks));
+const proxies = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(proxies));
+
+const chartDefaults = {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8' } } },
+    scales: {
+        x: { ticks: { color: '#64748b', maxTicksLimit: 20 }, grid: { color: '#1e2235' } },
+        y: { ticks: { color: '#64748b' }, grid: { color: '#1e2235' }, beginAtZero: true }
+    }
+};
+
+// Volume chart
+new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+        labels,
+        datasets: [
+            { label: 'Success', data: successes, backgroundColor: 'rgba(52,211,153,.7)', stack: 'a' },
+            { label: 'Errors', data: errors, backgroundColor: 'rgba(248,113,113,.7)', stack: 'a' }
+        ]
+    },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked: true }, y: { ...chartDefaults.scales.y, stacked: true } } }
+});
+
+// Duration chart
+new Chart(document.getElementById('durationChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{
+            label: 'Avg ms',
+            data: avgDurations,
+            borderColor: '#a78bfa',
+            backgroundColor: 'rgba(167,139,250,.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 2
+        }]
+    },
+    options: chartDefaults
+});
+
+// Mode chart
+new Chart(document.getElementById('modeChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [
+            { label: 'Mock', data: mocks, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.1)', fill: true, tension: 0.4, pointRadius: 2 },
+            { label: 'Proxy', data: proxies, borderColor: '#0891b2', backgroundColor: 'rgba(8,145,178,.1)', fill: true, tension: 0.4, pointRadius: 2 }
+        ]
+    },
+    options: chartDefaults
+});
+
+// Status pie
+const totalSuccess = successes.reduce((a,b)=>a+b,0);
+const totalErrors = errors.reduce((a,b)=>a+b,0);
+const totalAll = totals.reduce((a,b)=>a+b,0);
+const total4xx = Math.max(0, totalErrors - Math.round(totalErrors * 0.3));
+new Chart(document.getElementById('statusPie'), {
+    type: 'doughnut',
+    data: {
+        labels: ['2xx', '4xx', '5xx'],
+        datasets: [{
+            data: [totalSuccess, total4xx, totalErrors - total4xx],
+            backgroundColor: ['rgba(52,211,153,.8)', 'rgba(251,191,36,.8)', 'rgba(248,113,113,.8)'],
+            borderColor: ['#0f1117'],
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#94a3b8' } } }
+    }
+});
+
+// ── Heatmap ────────────────────────────────────────────────────────────────
+const heatmapData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Enumerable.Range(0, 7).Select(d =>
+        Enumerable.Range(0, 24).Select(h => heatmapData[d, h]).ToArray()
+    ).ToArray()
+));
+
+const days = ['Today', '1d ago', '2d ago', '3d ago', '4d ago', '5d ago', '6d ago'];
+const hours = Array.from({length:24}, (_,i) => i.toString().padStart(2,'0') + ':00');
+const maxVal = Math.max(1, ...heatmapData.flat());
+
+function heatColor(v) {
+    const t = v / maxVal;
+    if (t === 0) return '#1a1d2e';
+    const r = Math.round(124 + (167-124)*t);
+    const g = Math.round(58 + (139-58)*(1-t));
+    const b = Math.round(237 + (250-237)*t);
+    return `rgba(${r},${g},${b},${0.2 + t*0.8})`;
+}
+
+const container = document.getElementById('heatmap');
+let html = '<table style="border-collapse:collapse;font-size:0.7rem;width:100%"><thead><tr><th style="width:60px;color:#64748b"></th>';
+hours.forEach(h => {
+    html += `<th style="color:#64748b;text-align:center;padding:2px;font-weight:normal">${h.split(':')[0]}</th>`;
+});
+html += '</tr></thead><tbody>';
+heatmapData.forEach((row, di) => {
+    html += `<tr><td style="color:#94a3b8;padding:3px 6px;white-space:nowrap">${days[di]}</td>`;
+    row.forEach(v => {
+        html += `<td title="${v} req" style="background:${heatColor(v)};width:${100/24}%;height:22px;border-radius:3px;margin:1px;border:1px solid #0f1117"></td>`;
+    });
+    html += '</tr>';
+});
+html += '</tbody></table>';
+html += `<div class="d-flex align-items-center gap-2 mt-2">
+    <span style="color:#64748b;font-size:0.7rem">Low</span>
+    <div style="background:linear-gradient(to right,#1a1d2e,rgba(167,139,250,0.9));width:120px;height:10px;border-radius:3px"></div>
+    <span style="color:#64748b;font-size:0.7rem">High</span>
+</div>`;
+container.innerHTML = html;
+</script>
+}
